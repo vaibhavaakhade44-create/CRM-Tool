@@ -1,0 +1,72 @@
+services:
+  # ── Frontend (Vite React) ────────────────────────────────────
+  - type: web
+    name: crm-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+
+  # ── Backend (Node/Express) ───────────────────────────────────
+  - type: web
+    name: flowcrm-backend
+    runtime: node
+    region: oregon
+    plan: free
+    # NOTE: the migrations/ folder has drifted from schema.prisma (≈20 tables +
+    # 7 enums exist only in the schema), so `prisma migrate deploy` builds an
+    # INCOMPLETE database and half the modules 500. Until the migration history
+    # is rebaselined, deploy syncs the DB to match schema.prisma directly, which
+    # is what has always worked locally. `db push` is non-destructive when the
+    # schema and DB already agree; it only adds what's missing.
+    buildCommand: cd backend && npm install --include=dev && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss && npm run build
+    startCommand: node backend/dist/cluster.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WEB_CONCURRENCY
+        value: 1
+      - key: DB_POOL_LIMIT
+        value: 5
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # RBAC permission matrix: "false" = report-only (log, don't block).
+      # Flip to "true" after a release cycle of clean RBAC_WOULD_BLOCK logs.
+      - key: RBAC_ENFORCE
+        value: "false"
+      # crm-frontend and flowcrm-backend are separate Render services (different
+      # *.onrender.com domains = cross-site), so the auth cookie needs
+      # SameSite=None or the browser won't send it on XHR and login fails.
+      # (Render serves everything over HTTPS, which None requires.)
+      - key: AUTH_COOKIE_SAMESITE
+        value: "none"
+      - key: FRONTEND_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

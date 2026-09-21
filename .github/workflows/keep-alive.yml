@@ -1,0 +1,51 @@
+name: Keep Render Awake
+
+# Render's free tier spins a web service down after ~15 min with no inbound
+# traffic — the next visitor then eats a 30–60 s cold start. This pings the
+# backend health endpoint from OUTSIDE Render every 5 min so the service never
+# goes idle long enough to sleep (and wakes it if it already did, e.g. after a
+# deploy or crash — cases the backend's own internal keep-alive cron can't cover).
+#
+# Setup: add a repo variable (Settings → Secrets and variables → Actions →
+# Variables) named BACKEND_URL pointing at the deployed backend, e.g.
+#   https://flowcrm-backend.onrender.com
+# If unset it falls back to the value below.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes
+  workflow_dispatch:          # manual "wake it now" button in the Actions tab
+
+# If a run is still going when the next one is due, skip the new one rather than
+# stacking pings.
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping backend health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hit /api/health
+        run: |
+          BASE="${{ vars.BACKEND_URL || 'https://flowcrm-backend.onrender.com' }}"
+          URL="${BASE%/}/api/health"
+          echo "Pinging $URL"
+          # --retry rides out a cold start: up to 5 tries, backing off, and
+          # --retry-all-errors so a 502/503 from a still-booting server retries too.
+          # --max-time 90 gives one attempt enough room for a full cold boot.
+          code=$(curl -sS -o /tmp/body.txt -w '%{http_code}' \
+            --max-time 90 \
+            --retry 5 --retry-delay 15 --retry-all-errors \
+            "$URL" || true)
+          echo "HTTP $code"
+          echo "Body: $(cat /tmp/body.txt)"
+          if [ "$code" != "200" ]; then
+            echo "::error::Health check did not return 200 (got $code)"
+            exit 1
+          fi
+          echo "### Backend awake ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Time: $(date -u)" >> "$GITHUB_STEP_SUMMARY"

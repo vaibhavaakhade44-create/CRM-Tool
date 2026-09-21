@@ -1,0 +1,4111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String                @id @default(cuid())
+  name                String
+  email               String                @unique
+  password            String
+  avatar              String?
+  isEmailVerified     Boolean               @default(false)
+  emailVerifyToken    String?               @unique
+  passwordResetToken  String?               @unique
+  passwordResetExpiry DateTime?
+  isSuperAdmin        Boolean               @default(false)
+  twoFactorSecret     String?
+  twoFactorEnabled    Boolean               @default(false)
+  lastLoginAt         DateTime?
+  isActive            Boolean               @default(true)
+  loginAttempts       Int                   @default(0)
+  lockedUntil         DateTime?
+  lastPasswordChange  DateTime?
+  passwordHistory     String[]              @default([])
+  phone               String?               @unique
+  phoneVerified       Boolean               @default(false)
+  firebaseUid         String?               @unique
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  sentInvites         OrgInvite[]           @relation("InvitedBy")
+  memberships         OrganizationMember[]
+  refreshTokens       RefreshToken[]
+  sessions            UserSession[]
+  apiKeys             ApiKey[]
+  communications      Communication[]
+  moduleAccess        UserModuleAccess[]
+  accessRequests      AccessRequest[]
+  orgModuleRequests   OrgModuleRequest[]    @relation("OrgModuleRequestedBy")
+  resolvedModuleReqs  OrgModuleRequest[]    @relation("OrgModuleResolvedBy")
+  gmailAccount        GmailAccount?
+  emailAccounts       EmailAccount[]
+  pushSubscriptions   WebPushSubscription[]
+  wbaProjectsCreated  WBAProject[]          @relation("WBAProjectCreatedBy")
+
+  @@index([email])
+}
+
+model WebPushSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model GmailAccount {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  email        String
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Universal multi-provider email accounts (Gmail OAuth, Outlook OAuth, IMAP/SMTP)
+model EmailAccount {
+  id           String        @id @default(cuid())
+  userId       String
+  provider     EmailProvider @default(GMAIL)
+  label        String // display name, e.g. "Work Gmail"
+  email        String
+  isPrimary    Boolean       @default(false)
+  isActive     Boolean       @default(true)
+  // OAuth tokens (Gmail, Outlook)
+  accessToken  String?       @db.Text
+  refreshToken String?       @db.Text
+  expiresAt    DateTime?
+  // IMAP/SMTP credentials (any provider)
+  imapHost     String?
+  imapPort     Int?
+  imapSecure   Boolean       @default(true)
+  smtpHost     String?
+  smtpPort     Int?
+  smtpSecure   Boolean       @default(true)
+  smtpPassword String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+enum EmailProvider {
+  GMAIL
+  OUTLOOK
+  YAHOO
+  IMAP
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Organization {
+  id                 String               @id @default(cuid())
+  name               String
+  slug               String               @unique
+  businessType       BusinessType         @default(IMPORT_EXPORT)
+  email              String?
+  phone              String?
+  address            String?
+  city               String?
+  state              String?
+  country            String               @default("IN")
+  pincode            String?
+  currency           String               @default("INR")
+  taxId              String?
+  gstStateCode       String?
+  iecCode            String?
+  panNumber          String?
+  logo               String?
+  website            String?
+  brandingColor      String?
+  complianceConfig   Json?
+  enabledModules     String[]             @default([])
+  isActive           Boolean              @default(true)
+  plan               String               @default("FREE")
+  planExpiresAt      DateTime?
+  adminNotes         String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  invites            OrgInvite[]
+  members            OrganizationMember[]
+  parties            Party[]
+  contacts           Contact[]
+  communications     Communication[]
+  productCategories  ProductCategory[]
+  products           Product[]
+  stockMovements     StockMovement[]
+  warehouses         Warehouse[]
+  purchaseOrders     PurchaseOrder[]
+  salesOrders        SalesOrder[]
+  shipments          Shipment[]
+  invoices           Invoice[]
+  payments           Payment[]
+  employees          Employee[]
+  attendances        Attendance[]
+  payrolls           Payroll[]
+  leaveRequests      LeaveRequest[]
+  projects           Project[]
+  tasks              Task[]
+  leads              Lead[]
+  campaigns          Campaign[]
+  supportTickets     SupportTicket[]
+  tradeDocuments     TradeDocument[]
+  collections        Collection[]
+  posSessions        POSSession[]
+  stockTransfers     StockTransfer[]
+  auditLogs          AuditLog[]
+  userModuleAccess   UserModuleAccess[]
+  accessRequests     AccessRequest[]
+  moduleRequests     OrgModuleRequest[]
+  goodsEntries       GoodsEntry[]
+  emailLogs          EmailLog[]
+  emailTemplates     EmailTemplate[]
+  deals              Deal[]
+  quotations         Quotation[]
+  documents          Document[]
+  notifications      Notification[]
+  recurringInvoices  RecurringInvoice[]
+  leaveBalances      LeaveBalance[]
+  productBatches     ProductBatch[]
+  recordComments     RecordComment[]
+  tdsEntries         TDSEntry[]
+  budgets            Budget[]
+  boms               BOM[]
+  workOrders         WorkOrder[]
+  exchangeRates      ExchangeRate[]
+  bankTransactions   BankTransaction[]
+  webhooks           WebhookEndpoint[]
+  sprints            Sprint[]
+  performanceGoals   PerformanceGoal[]
+  performanceReviews PerformanceReview[]
+  expenses           Expense[]
+  shifts             Shift[]
+  appointments       Appointment[]
+  automationRules    LeadAutomationRule[]
+  whatsappConfig     WhatsAppConfig?
+  whatsappMessages   WhatsAppMessage[]
+  leadForms          LeadForm[]
+  apiKeys            ApiKey[]
+  ipAllowlist        OrgIpAllowlist[]
+  orgPermissions     OrgPermission[]
+
+  // Phase 1 — IT Sector
+  bugs                Bug[]
+  projectTimeEntries  ProjectTimeEntry[]
+  gitCommits          GitCommit[]
+  slaPolicies         SLAPolicy[]
+  resourceAllocations ResourceAllocation[]
+  clientPortalUsers   ClientPortalUser[]
+
+  // Phase 2 — Tele-calling
+  callLogs        CallLog[]
+  callScripts     CallScript[]
+  dncEntries      DNCEntry[]
+  dialerCampaigns DialerCampaign[]
+
+  // Phase 3 — Services
+  serviceCatalog   ServiceCatalogItem[]
+  serviceContracts ServiceContract[]
+  kbArticles       KBArticle[]
+  internalMessages InternalMessage[]
+
+  // Phase 4 — Stock Market
+  advisoryPlans         AdvisoryPlan[]
+  advisorySubscriptions AdvisorySubscription[]
+  tradeCalls            TradeCall[]
+  researchReports       ResearchReport[]
+  kycRecords            KYCRecord[]
+  marketAlerts          MarketAlert[]
+
+  // Phase 5 — Health
+  patients           Patient[]
+  patientVisits      PatientVisit[]
+  prescriptions      Prescription[]
+  labReports         LabReport[]
+  doctors            Doctor[]
+  healthAppointments HealthAppointment[]
+
+  // Phase 6 — Food & Hospitality
+  restaurantTables  RestaurantTable[]
+  menuCategories    MenuCategory[]
+  menuItems         MenuItem[]
+  kots              KOT[]
+  restaurantBills   RestaurantBill[]
+  tableReservations TableReservation[]
+  roomTypes         RoomType[]
+  hotelRooms        HotelRoom[]
+  guestProfiles     GuestProfile[]
+  hotelBookings     HotelBooking[]
+
+  // Phase 7 — Reception / Front Desk
+  visitors    Visitor[]
+  courierLogs CourierLog[]
+
+  // Phase 8 — Car Resale
+  carLeads          CarLead[]
+  vehicles          Vehicle[]
+  vehicleInsurances VehicleInsurance[]
+  carHistoricalStats CarHistoricalStat[]
+
+  // Universal
+  customFields CustomField[]
+  smsLogs      SMSLog[]
+  consentLogs  ConsentLog[]
+  wbaProjects  WBAProject[]
+
+  @@index([slug])
+}
+
+model UserModuleAccess {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  moduleKey      String
+  grantedAt      DateTime     @default(now())
+  grantedById    String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, moduleKey])
+  @@index([organizationId])
+  @@index([userId, organizationId])
+}
+
+model AccessRequest {
+  id             String              @id @default(cuid())
+  userId         String
+  organizationId String
+  moduleKey      String
+  status         AccessRequestStatus @default(PENDING)
+  message        String?
+  responseNote   String?
+  requestedAt    DateTime            @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, moduleKey])
+  @@index([organizationId, status])
+  @@index([userId])
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+// An org's request to enable a module it doesn't have yet — distinct from
+// AccessRequest, which is a user asking their own org admin for a module
+// the org already has. This one goes to the platform's super admin: an org's
+// own Owner/Admin can no longer just flip a new module on for themselves.
+model OrgModuleRequest {
+  id             String              @id @default(cuid())
+  organizationId String
+  moduleKey      String
+  requestedById  String
+  status         AccessRequestStatus @default(PENDING)
+  message        String?
+  responseNote   String?
+  requestedAt    DateTime            @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("OrgModuleRequestedBy", fields: [requestedById], references: [id])
+  resolvedBy   User?        @relation("OrgModuleResolvedBy", fields: [resolvedById], references: [id])
+
+  @@unique([organizationId, moduleKey])
+  @@index([status])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String?
+  userEmail      String?
+  userName       String?
+  action         String
+  resource       String
+  resourceId     String?
+  description    String?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           MemberRole   @default(STAFF)
+  isActive       Boolean      @default(true)
+  joinedAt       DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model OrgInvite {
+  id             String       @id @default(cuid())
+  email          String
+  organizationId String
+  role           MemberRole   @default(STAFF)
+  allowedModules String[]
+  token          String       @unique @default(cuid())
+  status         InviteStatus @default(PENDING)
+  invitedById    String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  invitedBy      User         @relation("InvitedBy", fields: [invitedById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([token])
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MANAGER
+  STAFF
+  ACCOUNTANT
+  VIEWER
+}
+
+enum BusinessType {
+  IMPORT
+  EXPORT
+  IMPORT_EXPORT
+  TRADING
+  MANUFACTURING
+  RETAIL
+  ECOMMERCE
+  IT_SOFTWARE
+  IT_SERVICES
+  HEALTHCARE
+  EDUCATION
+  REAL_ESTATE
+  FOOD_BEVERAGE
+  LOGISTICS
+  FINANCE
+  CONSULTING
+  MEDIA
+  AGRICULTURE
+  HOSPITALITY
+  LEGAL
+  NGO
+  OTHER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum PartyType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+enum CommunicationType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  WHATSAPP
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CRM — Parties (Customers & Suppliers)
+// ─────────────────────────────────────────────────────────────
+
+model Party {
+  id             String    @id @default(cuid())
+  organizationId String
+  type           PartyType @default(CUSTOMER)
+  name           String
+  displayName    String?
+  email          String?
+  phone          String?
+  mobile         String?
+  website        String?
+
+  // Address
+  address String?
+  city    String?
+  state   String?
+  country String? @default("IN")
+  pincode String?
+
+  // Business / Tax
+  gstin            String?
+  pan              String?
+  iecCode          String?
+  currency         String  @default("INR")
+  creditLimit      Float?
+  paymentTermsDays Int?
+
+  // Banking
+  bankName    String?
+  bankAccount String?
+  bankIfsc    String?
+  bankBranch  String?
+
+  notes        String?
+  tags         String[] @default([])
+  isActive     Boolean  @default(true)
+  assignedToId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts          Contact[]
+  communications    Communication[]
+  purchaseOrders    PurchaseOrder[]
+  salesOrders       SalesOrder[]
+  invoices          Invoice[]
+  goodsEntries      GoodsEntry[]
+  payments          Payment[]
+  leads             Lead[]
+  supportTickets    SupportTicket[]
+  posSales          POSSale[]
+  tradeDocuments    TradeDocument[]
+  projects          Project[]
+  emailLogs         EmailLog[]
+  deals             Deal[]
+  quotations        Quotation[]
+  recurringInvoices RecurringInvoice[]
+  tdsEntries        TDSEntry[]
+  wbaProjects       WBAProject[]
+
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@index([organizationId, name])
+  @@index([assignedToId])
+}
+
+model Contact {
+  id             String   @id @default(cuid())
+  organizationId String
+  partyId        String
+  name           String
+  designation    String?
+  email          String?
+  phone          String?
+  mobile         String?
+  isPrimary      Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party        @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([partyId])
+  @@index([organizationId])
+}
+
+model Communication {
+  id             String            @id @default(cuid())
+  organizationId String
+  partyId        String
+  type           CommunicationType @default(NOTE)
+  subject        String?
+  description    String
+  outcome        String?
+  followUpDate   DateTime?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party        @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@index([partyId])
+  @@index([organizationId, followUpDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  INVENTORY & STOCK
+// ─────────────────────────────────────────────────────────────
+
+enum MovementType {
+  PURCHASE_IN
+  SALES_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  RETURN_IN
+  RETURN_OUT
+  OPENING_STOCK
+  PRODUCTION_IN
+  PRODUCTION_USE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+
+model ProductCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  parentId       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children     ProductCategory[] @relation("CategoryTree")
+  products     Product[]
+
+  @@index([organizationId])
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  organizationId String
+  categoryId     String?
+  sku            String
+  name           String
+  description    String?
+  unit           String        @default("PCS")
+  costPrice      Float         @default(0)
+  sellingPrice   Float         @default(0)
+  mrp            Float?
+  taxRate        Float         @default(0)
+  hsnCode        String?
+  reorderLevel   Float         @default(0)
+  maxStockLevel  Float?
+  currentStock   Float         @default(0)
+  status         ProductStatus @default(ACTIVE)
+  barcode        String?
+  imageUrl       String?
+  warehouseId    String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       ProductCategory?    @relation(fields: [categoryId], references: [id])
+  warehouse      Warehouse?          @relation(fields: [warehouseId], references: [id])
+  stockMovements StockMovement[]
+  purchaseItems  PurchaseOrderItem[]
+  salesItems     SalesOrderItem[]
+  variants       ProductVariant[]
+  posSaleItems   POSSaleItem[]
+  quotationItems QuotationItem[]
+  batches        ProductBatch[]
+  boms           BOM[]
+  bomComponents  BOMItem[]           @relation("BOMComponents")
+
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+  @@index([organizationId, categoryId])
+}
+
+model ProductBatch {
+  id                String    @id @default(cuid())
+  organizationId    String
+  productId         String
+  batchNumber       String
+  lotNumber         String?
+  manufacturingDate DateTime?
+  expiryDate        DateTime?
+  quantity          Float     @default(0)
+  costPrice         Float?
+  notes             String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, productId, batchNumber])
+  @@index([organizationId])
+  @@index([productId])
+  @@index([expiryDate])
+}
+
+model StockMovement {
+  id             String       @id @default(cuid())
+  organizationId String
+  productId      String
+  warehouseId    String?
+  type           MovementType
+  quantity       Float
+  balanceAfter   Float
+  referenceType  String?
+  referenceId    String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse?   @relation(fields: [warehouseId], references: [id])
+
+  @@index([organizationId])
+  @@index([productId])
+  @@index([organizationId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WAREHOUSE MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+model Warehouse {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  code           String
+  address        String?
+  city           String?
+  state          String?
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products       Product[]
+  stockMovements StockMovement[]
+  transfersFrom  StockTransfer[] @relation("TransferFrom")
+  transfersTo    StockTransfer[] @relation("TransferTo")
+  goodsEntries   GoodsEntry[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model StockTransfer {
+  id              String              @id @default(cuid())
+  organizationId  String
+  fromWarehouseId String
+  toWarehouseId   String
+  status          StockTransferStatus @default(DRAFT)
+  transferDate    DateTime            @default(now())
+  notes           String?
+  createdById     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromWarehouse Warehouse           @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse   Warehouse           @relation("TransferTo", fields: [toWarehouseId], references: [id])
+  items         StockTransferItem[]
+
+  @@index([organizationId])
+}
+
+model StockTransferItem {
+  id         String        @id @default(cuid())
+  transferId String
+  productId  String
+  quantity   Float
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+}
+
+enum StockTransferStatus {
+  DRAFT
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PURCHASE & PROCUREMENT
+// ─────────────────────────────────────────────────────────────
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+model PurchaseOrder {
+  id             String              @id @default(cuid())
+  organizationId String
+  partyId        String?
+  poNumber       String
+  status         PurchaseOrderStatus @default(DRAFT)
+  approvalStatus ApprovalStatus      @default(PENDING_APPROVAL)
+  approvedById   String?
+  approvalNote   String?
+  approvedAt     DateTime?
+  orderDate      DateTime            @default(now())
+  expectedDate   DateTime?
+  warehouseId    String?
+  subtotal       Float               @default(0)
+  taxAmount      Float               @default(0)
+  discount       Float               @default(0)
+  total          Float               @default(0)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?              @relation(fields: [partyId], references: [id])
+  items        PurchaseOrderItem[]
+
+  @@unique([organizationId, poNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  productId       String?
+  description     String
+  quantity        Float
+  receivedQty     Float   @default(0)
+  unitPrice       Float
+  taxRate         Float   @default(0)
+  taxAmount       Float   @default(0)
+  total           Float
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product?      @relation(fields: [productId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SALES & DISPATCH
+// ─────────────────────────────────────────────────────────────
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PROCESSING
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+enum ShipmentStatus {
+  PENDING
+  PACKED
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
+model SalesOrder {
+  id              String           @id @default(cuid())
+  organizationId  String
+  partyId         String?
+  soNumber        String
+  status          SalesOrderStatus @default(DRAFT)
+  orderDate       DateTime         @default(now())
+  expectedDate    DateTime?
+  subtotal        Float            @default(0)
+  taxAmount       Float            @default(0)
+  discount        Float            @default(0)
+  shippingCharge  Float            @default(0)
+  total           Float            @default(0)
+  shippingAddress String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?           @relation(fields: [partyId], references: [id])
+  items        SalesOrderItem[]
+  shipments    Shipment[]
+  invoices     Invoice[]
+
+  @@unique([organizationId, soNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model SalesOrderItem {
+  id            String  @id @default(cuid())
+  salesOrderId  String
+  productId     String?
+  variantId     String?
+  description   String
+  quantity      Float
+  dispatchedQty Float   @default(0)
+  unitPrice     Float
+  taxRate       Float   @default(0)
+  taxAmount     Float   @default(0)
+  discount      Float   @default(0)
+  total         Float
+
+  salesOrder SalesOrder      @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product    Product?        @relation(fields: [productId], references: [id])
+  variant    ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Shipment {
+  id             String         @id @default(cuid())
+  organizationId String
+  salesOrderId   String?
+  shipmentNumber String
+  status         ShipmentStatus @default(PENDING)
+  carrier        String?
+  trackingNumber String?
+  shipDate       DateTime?
+  deliveryDate   DateTime?
+  weight         Float?
+  packages       Int            @default(1)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesOrder   SalesOrder?  @relation(fields: [salesOrderId], references: [id])
+
+  @@unique([organizationId, shipmentNumber])
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ACCOUNTS & FINANCE
+// ─────────────────────────────────────────────────────────────
+
+enum InvoiceType {
+  SALES
+  PURCHASE
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  UPI
+  CARD
+  OTHER
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  organizationId String
+  partyId        String?
+  salesOrderId   String?
+  type           InvoiceType   @default(SALES)
+  status         InvoiceStatus @default(DRAFT)
+  invoiceNumber  String
+  invoiceDate    DateTime      @default(now())
+  dueDate        DateTime?
+  subtotal       Float         @default(0)
+  taxAmount      Float         @default(0)
+  discount       Float         @default(0)
+  total          Float         @default(0)
+  paidAmount     Float         @default(0)
+  balanceDue     Float         @default(0)
+  notes          String?
+  terms          String?
+  createdById    String?
+  // GST fields
+  placeOfSupply  String?
+  reverseCharge  Boolean       @default(false)
+  igstAmount     Float         @default(0)
+  cgstAmount     Float         @default(0)
+  sgstAmount     Float         @default(0)
+  eInvoiceIRN    String?
+  eWayBillNumber String?
+  publicToken    String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?        @relation(fields: [partyId], references: [id])
+  salesOrder   SalesOrder?   @relation(fields: [salesOrderId], references: [id])
+  items        InvoiceItem[]
+  payments     Payment[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, partyId])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float
+  unitPrice   Float
+  taxRate     Float   @default(0)
+  taxAmount   Float   @default(0)
+  discount    Float   @default(0)
+  total       Float
+  hsnCode     String?
+  igstRate    Float   @default(0)
+  igstAmount  Float   @default(0)
+  cgstRate    Float   @default(0)
+  cgstAmount  Float   @default(0)
+  sgstRate    Float   @default(0)
+  sgstAmount  Float   @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  organizationId  String
+  invoiceId       String?
+  partyId         String?
+  method          PaymentMethod @default(BANK_TRANSFER)
+  amount          Float
+  currency        String        @default("INR")
+  referenceNumber String?
+  paymentDate     DateTime      @default(now())
+  notes           String?
+  createdById     String?
+  createdAt       DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+  party        Party?       @relation(fields: [partyId], references: [id])
+
+  @@index([organizationId])
+  @@index([invoiceId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  POINT OF SALE
+// ─────────────────────────────────────────────────────────────
+
+enum POSSessionStatus {
+  OPEN
+  CLOSED
+}
+
+model POSSession {
+  id             String           @id @default(cuid())
+  organizationId String
+  warehouseId    String?
+  status         POSSessionStatus @default(OPEN)
+  openedAt       DateTime         @default(now())
+  closedAt       DateTime?
+  openingCash    Float            @default(0)
+  closingCash    Float?
+  totalSales     Float            @default(0)
+  createdById    String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sales        POSSale[]
+
+  @@index([organizationId])
+}
+
+model POSSale {
+  id             String        @id @default(cuid())
+  organizationId String
+  sessionId      String
+  receiptNumber  String
+  partyId        String?
+  subtotal       Float         @default(0)
+  taxAmount      Float         @default(0)
+  discount       Float         @default(0)
+  total          Float         @default(0)
+  paidAmount     Float         @default(0)
+  changeAmount   Float         @default(0)
+  paymentMethod  PaymentMethod @default(CASH)
+  notes          String?
+  createdAt      DateTime      @default(now())
+
+  session POSSession    @relation(fields: [sessionId], references: [id])
+  party   Party?        @relation(fields: [partyId], references: [id])
+  items   POSSaleItem[]
+
+  @@index([organizationId])
+  @@index([sessionId])
+}
+
+model POSSaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  productId String?
+  variantId String?
+  name      String
+  quantity  Float
+  unitPrice Float
+  taxRate   Float   @default(0)
+  taxAmount Float   @default(0)
+  discount  Float   @default(0)
+  total     Float
+
+  sale    POSSale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product?        @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HR & PAYROLL
+// ─────────────────────────────────────────────────────────────
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+  HOLIDAY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalaryType {
+  MONTHLY
+  DAILY
+  FIXED
+  UNPAID
+  INCENTIVE
+}
+
+model Employee {
+  id             String         @id @default(cuid())
+  organizationId String
+  employeeCode   String
+  name           String
+  email          String?
+  phone          String?
+  designation    String?
+  department     String?
+  employmentType EmploymentType @default(FULL_TIME)
+  status         EmployeeStatus @default(ACTIVE)
+  joiningDate    DateTime
+  leavingDate    DateTime?
+  salaryType     SalaryType     @default(MONTHLY)
+  basicSalary    Float          @default(0) // monthly CTC when salaryType=MONTHLY
+  dailyRate      Float? // per-day rate when salaryType=DAILY
+  hra            Float          @default(0) // fixed monthly HRA component
+  allowances     Float          @default(0) // fixed monthly allowances
+  bankAccount    String?
+  bankIfsc       String?
+  panNumber      String?
+  pfNumber       String?
+  esiNumber      String?
+  pfEnabled      Boolean? // null = use org default
+  esiEnabled     Boolean? // null = use org default
+  orgRole        String? // MANAGEMENT | HR | PROJECT_MANAGER | TEAM_LEAD | EMPLOYEE
+  userId         String? // link to system User for access-control lookups
+  address        String?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  shiftId String?
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shift              Shift?              @relation(fields: [shiftId], references: [id])
+  attendances        Attendance[]
+  payrolls           Payroll[]
+  leaveRequests      LeaveRequest[]
+  leaveBalances      LeaveBalance[]
+  performanceGoals   PerformanceGoal[]
+  performanceReviews PerformanceReview[]
+  expenses           Expense[]
+  projectMembers     ProjectMember[]
+  timeLogs           TimeLog[]
+  wbaMemberships     WBAProjectMember[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId])
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  organizationId String
+  employeeId     String
+  date           DateTime
+  status         AttendanceStatus @default(PRESENT)
+  checkIn        DateTime?
+  checkOut       DateTime?
+  hoursWorked    Float?
+  notes          String?
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([organizationId])
+  @@index([employeeId])
+}
+
+model Payroll {
+  id             String    @id @default(cuid())
+  organizationId String
+  employeeId     String
+  month          Int
+  year           Int
+  workingDays    Int       @default(26)
+  presentDays    Float     @default(0)
+  basicSalary    Float     @default(0)
+  hra            Float     @default(0)
+  allowances     Float     @default(0)
+  deductions     Float     @default(0)
+  pfDeduction    Float     @default(0)
+  esiDeduction   Float     @default(0)
+  grossSalary    Float     @default(0)
+  netSalary      Float     @default(0)
+  isPaid         Boolean   @default(false)
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
+  @@index([organizationId])
+}
+
+model LeaveRequest {
+  id             String      @id @default(cuid())
+  organizationId String
+  employeeId     String
+  leaveType      String      @default("Annual")
+  fromDate       DateTime
+  toDate         DateTime
+  days           Float
+  reason         String?
+  status         LeaveStatus @default(PENDING)
+  approvedById   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId])
+}
+
+model Shift {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  startTime      String
+  endTime        String
+  workingHours   Float    @default(8)
+  graceMins      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@index([organizationId])
+}
+
+model LeaveBalance {
+  id             String @id @default(cuid())
+  organizationId String
+  employeeId     String
+  year           Int
+  leaveType      String
+  allocated      Float  @default(0)
+  used           Float  @default(0)
+  pending        Float  @default(0)
+  carried        Float  @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year, leaveType])
+  @@index([organizationId])
+}
+
+model PerformanceGoal {
+  id             String    @id @default(cuid())
+  organizationId String
+  employeeId     String
+  title          String
+  description    String?
+  category       String    @default("Individual")
+  targetDate     DateTime?
+  progress       Int       @default(0)
+  status         String    @default("IN_PROGRESS")
+  year           Int
+  quarter        Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId])
+}
+
+model PerformanceReview {
+  id             String   @id @default(cuid())
+  organizationId String
+  employeeId     String
+  reviewType     String   @default("ANNUAL")
+  reviewPeriod   String
+  rating         Float?
+  selfRating     Float?
+  status         String   @default("DRAFT")
+  strengths      String?
+  improvements   String?
+  comments       String?
+  reviewDate     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId])
+}
+
+model Expense {
+  id             String    @id @default(cuid())
+  organizationId String
+  employeeId     String
+  expenseDate    DateTime
+  category       String
+  title          String
+  amount         Float
+  currency       String    @default("INR")
+  receiptUrl     String?
+  status         String    @default("PENDING")
+  notes          String?
+  approvedById   String?
+  approvedAt     DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId, status])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PROJECTS & TASKS
+// ─────────────────────────────────────────────────────────────
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  status         ProjectStatus @default(PLANNING)
+  projectType    ITProjectType @default(OTHER)
+  priority       TaskPriority  @default(MEDIUM)
+  startDate      DateTime?
+  endDate        DateTime?
+  budget         Float?
+  clientName     String?
+  techStack      String[]      @default([])
+  repoUrl        String?
+  liveUrl        String?
+  totalEstHours  Float?
+  completionPct  Int           @default(0)
+  publicToken    String?       @unique
+  publicSharedAt DateTime?
+  partyId        String?
+  managerId      String?
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party               Party?               @relation(fields: [partyId], references: [id])
+  tasks               Task[]
+  members             ProjectMember[]
+  milestones          ProjectMilestone[]
+  sprints             Sprint[]
+  bugs                Bug[]
+  timeEntries         ProjectTimeEntry[]
+  gitCommits          GitCommit[]
+  resourceAllocations ResourceAllocation[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String?
+  sprintId       String?
+  title          String
+  description    String?
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  assignedToId   String?
+  storyPoints    Int?
+  estimatedHours Float?
+  actualHours    Float?
+  tags           String[]     @default([])
+  dueDate        DateTime?
+  completedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id])
+  sprint       Sprint?       @relation(fields: [sprintId], references: [id])
+  comments     TaskComment[]
+  timeLogs     TimeLog[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([sprintId])
+  @@index([organizationId, status])
+  @@index([assignedToId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  comment   String
+  authorId  String?
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LEADS & MARKETING
+// ─────────────────────────────────────────────────────────────
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  SOCIAL_MEDIA
+  EMAIL
+  PHONE
+  EXHIBITION
+  OTHER
+}
+
+model Lead {
+  id               String     @id @default(cuid())
+  organizationId   String
+  name             String
+  company          String?
+  email            String?
+  phone            String?
+  phone2           String?
+  city             String?
+  industry         String?
+  source           LeadSource @default(OTHER)
+  status           LeadStatus @default(NEW)
+  value            Float?
+  assignedToId     String?
+  campaignId       String?
+  notes            String?
+  tags             String[]   @default([])
+  score            Int        @default(0)
+  leadGrade        String?
+  isDoNotCall      Boolean    @default(false)
+  nextFollowUpDate DateTime?
+  noFollowUp       Boolean    @default(false)
+  lastContactedAt  DateTime?
+  convertedAt      DateTime?
+  partyId          String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party            Party?            @relation(fields: [partyId], references: [id])
+  activities       LeadActivity[]
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id])
+  appointments     Appointment[]
+  whatsappMessages WhatsAppMessage[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([assignedToId])
+  @@index([organizationId, nextFollowUpDate])
+}
+
+model LeadActivity {
+  id           String    @id @default(cuid())
+  leadId       String
+  type         String
+  subject      String?
+  description  String
+  outcome      String?
+  callOutcome  String?
+  duration     Int?
+  followUpDate DateTime?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([followUpDate])
+}
+
+model Appointment {
+  id             String    @id @default(cuid())
+  organizationId String
+  leadId         String?
+  partyId        String?
+  title          String
+  description    String?
+  scheduledAt    DateTime
+  duration       Int       @default(30)
+  location       String?
+  meetingLink    String?
+  status         String    @default("SCHEDULED")
+  outcome        String?
+  assignedToId   String?
+  remindAt       DateTime?
+  reminderSent   Boolean   @default(false)
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead?        @relation(fields: [leadId], references: [id])
+
+  @@index([organizationId])
+  @@index([scheduledAt])
+  @@index([leadId])
+}
+
+model LeadAutomationRule {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  isActive       Boolean  @default(true)
+  trigger        String
+  triggerValue   String?
+  actionType     String
+  actionConfig   Json     @default("{}")
+  executionCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Campaign {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  type           String    @default("Email")
+  status         String    @default("Draft")
+  startDate      DateTime?
+  endDate        DateTime?
+  budget         Float?
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CUSTOMER SUPPORT
+// ─────────────────────────────────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model SupportTicket {
+  id             String         @id @default(cuid())
+  organizationId String
+  ticketNumber   String
+  subject        String
+  description    String
+  status         TicketStatus   @default(OPEN)
+  priority       TicketPriority @default(MEDIUM)
+  partyId        String?
+  assignedToId   String?
+  slaPolicyId    String?
+  resolvedAt     DateTime?
+  slaDeadline    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?        @relation(fields: [partyId], references: [id])
+  slaPolicy    SLAPolicy?    @relation(fields: [slaPolicyId], references: [id])
+  replies      TicketReply[]
+
+  @@unique([organizationId, ticketNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model TicketReply {
+  id         String   @id @default(cuid())
+  ticketId   String
+  message    String
+  isInternal Boolean  @default(false)
+  authorId   String?
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  IMPORT / EXPORT SUITE
+// ─────────────────────────────────────────────────────────────
+
+enum TradeDocumentType {
+  BILL_OF_LADING
+  LETTER_OF_CREDIT
+  COMMERCIAL_INVOICE
+  PACKING_LIST
+  CERTIFICATE_OF_ORIGIN
+  INSURANCE_CERTIFICATE
+  SHIPPING_BILL
+  BILL_OF_ENTRY
+  OTHER
+}
+
+enum TradeDocumentStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model TradeDocument {
+  id              String              @id @default(cuid())
+  organizationId  String
+  partyId         String?
+  type            TradeDocumentType   @default(OTHER)
+  status          TradeDocumentStatus @default(DRAFT)
+  documentNumber  String
+  documentDate    DateTime            @default(now())
+  expiryDate      DateTime?
+  country         String?
+  portOfLoading   String?
+  portOfDischarge String?
+  vessel          String?
+  flightNumber    String?
+  amount          Float?
+  currency        String              @default("USD")
+  description     String?
+  fileUrl         String?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?       @relation(fields: [partyId], references: [id])
+
+  @@unique([organizationId, documentNumber])
+  @@index([organizationId])
+  @@index([organizationId, type])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RETAIL & FASHION (Clothing Brand)
+// ─────────────────────────────────────────────────────────────
+
+model Collection {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  season         String?
+  year           Int?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  variants     ProductVariant[]
+
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  STORE & DISPATCH REGISTER
+// ─────────────────────────────────────────────────────────────
+
+enum EntryDirection {
+  INWARD
+  OUTWARD
+}
+
+enum GoodsEntryStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model GoodsEntry {
+  id             String           @id @default(cuid())
+  organizationId String
+  entryNumber    String
+  direction      EntryDirection
+  entryDate      DateTime
+  entryTime      String?
+  materialName   String
+  quantity       Float
+  unit           String           @default("PCS")
+  partyName      String?
+  partyId        String?
+  vehicleNumber  String?
+  personName     String?
+  remarks        String?
+  referenceNo    String?
+  warehouseId    String?
+  status         GoodsEntryStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?       @relation(fields: [partyId], references: [id])
+  warehouse    Warehouse?   @relation(fields: [warehouseId], references: [id])
+
+  @@unique([organizationId, entryNumber])
+  @@index([organizationId, direction])
+  @@index([organizationId, entryDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DEALS / OPPORTUNITIES (Salesforce / HubSpot style)
+// ─────────────────────────────────────────────────────────────
+
+enum DealStage {
+  PROSPECTING
+  QUALIFICATION
+  NEEDS_ANALYSIS
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Deal {
+  id                String    @id @default(cuid())
+  organizationId    String
+  title             String
+  partyId           String?
+  leadId            String?
+  stage             DealStage @default(PROSPECTING)
+  value             Float?
+  probability       Int       @default(20)
+  expectedCloseDate DateTime?
+  assignedToId      String?
+  description       String?
+  notes             String?
+  closedAt          DateTime?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?       @relation(fields: [partyId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, stage])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  QUOTATIONS / PROPOSALS (SAP / Odoo / Zoho style)
+// ─────────────────────────────────────────────────────────────
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  organizationId  String
+  quotationNumber String
+  partyId         String?
+  status          QuotationStatus @default(DRAFT)
+  subject         String?
+  validUntil      DateTime?
+  subtotal        Float           @default(0)
+  taxAmount       Float           @default(0)
+  discount        Float           @default(0)
+  total           Float           @default(0)
+  notes           String?
+  terms           String?
+  createdById     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?          @relation(fields: [partyId], references: [id])
+  items        QuotationItem[]
+  wbaProject   WBAProject?
+
+  @@unique([organizationId, quotationNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model QuotationItem {
+  id          String  @id @default(cuid())
+  quotationId String
+  description String
+  quantity    Float   @default(1)
+  unitPrice   Float
+  taxRate     Float   @default(0)
+  taxAmount   Float   @default(0)
+  discount    Float   @default(0)
+  total       Float
+  productId   String?
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EMAIL MODULE
+// ─────────────────────────────────────────────────────────────
+
+enum EmailStatus {
+  DRAFT
+  SENT
+  FAILED
+}
+
+model EmailTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  subject        String
+  body           String   @db.Text
+  category       String   @default("GENERAL")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emails       EmailLog[]
+
+  @@index([organizationId])
+}
+
+model EmailLog {
+  id             String      @id @default(cuid())
+  organizationId String
+  fromEmail      String
+  toEmail        String
+  ccEmail        String?
+  subject        String
+  body           String      @db.Text
+  templateId     String?
+  partyId        String?
+  leadId         String?
+  status         EmailStatus @default(SENT)
+  errorMessage   String?
+  sentAt         DateTime?
+  sentById       String?
+  createdAt      DateTime    @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?         @relation(fields: [partyId], references: [id])
+  template     EmailTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, partyId])
+}
+
+model ProductVariant {
+  id           String   @id @default(cuid())
+  productId    String
+  collectionId String?
+  sku          String
+  size         String?
+  color        String?
+  material     String?
+  costPrice    Float    @default(0)
+  sellingPrice Float    @default(0)
+  mrp          Float?
+  stock        Float    @default(0)
+  barcode      String?
+  imageUrl     String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  product      Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection   Collection?      @relation(fields: [collectionId], references: [id])
+  salesItems   SalesOrderItem[]
+  posSaleItems POSSaleItem[]
+
+  @@unique([productId, sku])
+  @@index([productId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DOCUMENT ATTACHMENTS
+// ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+//  NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  type           String
+  title          String
+  message        String
+  link           String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId])
+  @@index([organizationId, isRead])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RECURRING INVOICES
+// ─────────────────────────────────────────────────────────────
+
+enum RecurringFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model RecurringInvoice {
+  id             String             @id @default(cuid())
+  organizationId String
+  partyId        String?
+  frequency      RecurringFrequency @default(MONTHLY)
+  nextRunDate    DateTime
+  dayOfMonth     Int                @default(1)
+  subject        String?
+  items          Json
+  subtotal       Float              @default(0)
+  taxAmount      Float              @default(0)
+  total          Float              @default(0)
+  notes          String?
+  isActive       Boolean            @default(true)
+  autoSend       Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?       @relation(fields: [partyId], references: [id])
+
+  @@index([organizationId])
+  @@index([nextRunDate, isActive])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RECORD COMMENTS (polymorphic — any entity type)
+// ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+//  TDS / TCS TRACKING
+// ─────────────────────────────────────────────────────────────
+
+enum TDSType {
+  TDS
+  TCS
+}
+
+model TDSEntry {
+  id             String    @id @default(cuid())
+  organizationId String
+  type           TDSType   @default(TDS)
+  partyId        String?
+  invoiceId      String?
+  section        String // "194C", "194Q", "206C" etc.
+  description    String?
+  baseAmount     Float
+  tdsRate        Float // percentage
+  tdsAmount      Float
+  paymentDate    DateTime  @default(now())
+  challanNumber  String?
+  depositedAt    DateTime?
+  isDeposited    Boolean   @default(false)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?       @relation(fields: [partyId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@index([organizationId, isDeposited])
+}
+
+model RecordComment {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String // "INVOICE" | "PURCHASE_ORDER" | "LEAD" | "DEAL" | "TASK" | etc.
+  entityId       String
+  comment        String   @db.Text
+  authorId       String?
+  authorName     String?
+  authorEmail    String?
+  isInternal     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, entityType, entityId])
+}
+
+model Document {
+  id             String @id @default(cuid())
+  organizationId String
+  fileName       String
+  originalName   String
+  mimeType       String
+  fileSize       Int
+  filePath       String
+
+  entityType  String
+  entityId    String
+  description String?
+
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, entityType, entityId])
+}
+
+model Budget {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  department     String?
+  fiscalYear     String // e.g. "2024-2025"
+  startDate      DateTime
+  endDate        DateTime
+  totalBudget    Float    @default(0)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        BudgetItem[]
+
+  @@index([organizationId])
+  @@index([organizationId, fiscalYear])
+}
+
+model BudgetItem {
+  id              String  @id @default(cuid())
+  budgetId        String
+  category        String // e.g. "Salaries", "Marketing", "Operations"
+  allocatedAmount Float   @default(0)
+  spentAmount     Float   @default(0)
+  notes           String?
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+}
+
+model BOM {
+  id             String   @id @default(cuid())
+  organizationId String
+  productId      String
+  name           String
+  version        String   @default("1.0")
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+  items        BOMItem[]
+  workOrders   WorkOrder[]
+
+  @@index([organizationId])
+  @@index([organizationId, productId])
+}
+
+model BOMItem {
+  id          String  @id @default(cuid())
+  bomId       String
+  componentId String
+  quantity    Float   @default(1)
+  unit        String  @default("PCS")
+  notes       String?
+
+  bom       BOM     @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  component Product @relation("BOMComponents", fields: [componentId], references: [id])
+
+  @@index([bomId])
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model WorkOrder {
+  id             String          @id @default(cuid())
+  organizationId String
+  bomId          String
+  workOrderNo    String
+  status         WorkOrderStatus @default(DRAFT)
+  quantity       Float           @default(1)
+  startDate      DateTime?
+  endDate        DateTime?
+  completedAt    DateTime?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bom          BOM          @relation(fields: [bomId], references: [id])
+
+  @@unique([organizationId, workOrderNo])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model ExchangeRate {
+  id             String   @id @default(cuid())
+  organizationId String
+  fromCurrency   String // e.g. "USD"
+  toCurrency     String // e.g. "INR"
+  rate           Float // 1 fromCurrency = rate toCurrency
+  effectiveDate  DateTime @default(now())
+  source         String   @default("MANUAL") // MANUAL | AUTO
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, fromCurrency, toCurrency])
+}
+
+enum BankTxnType {
+  CREDIT
+  DEBIT
+}
+
+enum ReconcileStatus {
+  UNMATCHED
+  MATCHED
+  IGNORED
+}
+
+model BankTransaction {
+  id               String          @id @default(cuid())
+  organizationId   String
+  accountName      String // Bank account label
+  txnDate          DateTime
+  description      String
+  amount           Float
+  type             BankTxnType
+  reference        String?
+  reconcileStatus  ReconcileStatus @default(UNMATCHED)
+  matchedInvoiceId String?
+  matchedPaymentId String?
+  notes            String?
+  importedAt       DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, reconcileStatus])
+  @@index([organizationId, txnDate])
+}
+
+model WebhookEndpoint {
+  id             String   @id @default(cuid())
+  organizationId String
+  url            String
+  events         String[]
+  secret         String
+  isActive       Boolean  @default(true)
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId])
+}
+
+model WebhookDelivery {
+  id           String    @id @default(cuid())
+  webhookId    String
+  event        String
+  payload      Json
+  statusCode   Int?
+  success      Boolean   @default(false)
+  attempts     Int       @default(0)
+  responseBody String?
+  deliveredAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  webhook WebhookEndpoint @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([webhookId, event])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  IT PROJECT MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+enum ITProjectType {
+  WEB_APP
+  MOBILE_APP
+  API_SERVICE
+  DESKTOP_APP
+  DATA_ANALYTICS
+  AI_ML
+  DEVOPS_INFRA
+  ECOMMERCE
+  ERP_CRM
+  CONSULTING
+  OTHER
+}
+
+enum ProjectMemberRole {
+  PROJECT_MANAGER
+  PROJECT_INCHARGE
+  TECH_LEAD
+  SENIOR_DEVELOPER
+  DEVELOPER
+  FRONTEND_DEV
+  BACKEND_DEV
+  FULLSTACK_DEV
+  UI_UX_DESIGNER
+  QA_ENGINEER
+  DEVOPS_ENGINEER
+  BUSINESS_ANALYST
+  SCRUM_MASTER
+  STAKEHOLDER
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model ProjectMember {
+  id         String            @id @default(cuid())
+  projectId  String
+  employeeId String
+  role       ProjectMemberRole @default(DEVELOPER)
+  joinedAt   DateTime          @default(now())
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, employeeId])
+  @@index([projectId])
+  @@index([employeeId])
+}
+
+model ProjectMilestone {
+  id          String    @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  dueDate     DateTime
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Sprint {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String
+  name           String
+  goal           String?
+  startDate      DateTime
+  endDate        DateTime
+  status         SprintStatus @default(PLANNED)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+model TimeLog {
+  id         String   @id @default(cuid())
+  taskId     String
+  employeeId String
+  logDate    DateTime @default(now())
+  hours      Float
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([employeeId])
+  @@index([employeeId, logDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WHATSAPP BUSINESS API
+// ─────────────────────────────────────────────────────────────
+
+model WhatsAppConfig {
+  id                 String   @id @default(cuid())
+  organizationId     String   @unique
+  phoneNumberId      String
+  accessToken        String   @db.Text
+  businessId         String?
+  wabaId             String?
+  phoneNumber        String?
+  displayName        String?
+  isActive           Boolean  @default(true)
+  webhookVerifyToken String   @default("")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  leadId         String?
+  partyId        String?
+  direction      String   @default("OUTBOUND")
+  toPhone        String
+  fromPhone      String?
+  type           String   @default("text")
+  content        String   @db.Text
+  templateName   String?
+  status         String   @default("SENT")
+  waMessageId    String?
+  errorMessage   String?
+  sentById       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead?        @relation(fields: [leadId], references: [id])
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([toPhone])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LEAD CAPTURE FORMS
+// ─────────────────────────────────────────────────────────────
+
+model LeadForm {
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  description       String?
+  fields            Json     @default("[]")
+  successMessage    String   @default("Thank you! We'll be in touch soon.")
+  isActive          Boolean  @default(true)
+  defaultSource     String   @default("WEBSITE")
+  defaultCampaignId String?
+  assignToId        String?
+  submitCount       Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submissions  LeadFormSubmission[]
+
+  @@index([organizationId])
+}
+
+model LeadFormSubmission {
+  id        String   @id @default(cuid())
+  formId    String
+  data      Json
+  ipAddress String?
+  userAgent String?
+  leadId    String?
+  createdAt DateTime @default(now())
+
+  form LeadForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SECURITY — Session tracking
+// ─────────────────────────────────────────────────────────────
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  tokenId      String?  @unique
+  device       String?
+  browser      String?
+  os           String?
+  ipAddress    String?
+  city         String?
+  country      String?
+  isCurrent    Boolean  @default(false)
+  lastActiveAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  isActive     Boolean  @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SECURITY — API Keys
+// ─────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  scopes         String[]  @default([])
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([keyHash])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SECURITY — IP Allowlist per Org
+// ─────────────────────────────────────────────────────────────
+
+model OrgIpAllowlist {
+  id             String   @id @default(cuid())
+  organizationId String
+  ipCidr         String
+  label          String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SECURITY — Granular Action Permissions
+// ─────────────────────────────────────────────────────────────
+
+model OrgPermission {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  moduleKey      String
+  actions        String[] @default([])
+  grantedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, moduleKey])
+  @@index([organizationId, userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 1 — IT SECTOR
+// ─────────────────────────────────────────────────────────────
+
+enum BugSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum BugStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  WONT_FIX
+  DUPLICATE
+}
+
+model Bug {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String?
+  title          String
+  description    String?
+  severity       BugSeverity  @default(MEDIUM)
+  status         BugStatus    @default(OPEN)
+  priority       TaskPriority @default(MEDIUM)
+  reportedById   String?
+  assignedToId   String?
+  sprintId       String?
+  stepsToRepro   String?
+  expectedResult String?
+  actualResult   String?
+  environment    String?
+  tags           String[]     @default([])
+  attachments    String[]     @default([])
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  dueDate        DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id])
+  comments     BugComment[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([organizationId, status])
+  @@index([assignedToId])
+}
+
+model BugComment {
+  id        String   @id @default(cuid())
+  bugId     String
+  comment   String
+  authorId  String?
+  createdAt DateTime @default(now())
+
+  bug Bug @relation(fields: [bugId], references: [id], onDelete: Cascade)
+
+  @@index([bugId])
+}
+
+model ProjectTimeEntry {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String
+  taskId         String?
+  userId         String
+  description    String?
+  hours          Float
+  date           DateTime  @default(now())
+  billable       Boolean   @default(true)
+  approved       Boolean   @default(false)
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([date])
+}
+
+model GitCommit {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String
+  sha            String
+  message        String
+  author         String?
+  authorEmail    String?
+  branch         String?
+  repoName       String?
+  committedAt    DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, sha])
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+model SLAPolicy {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  name               String
+  description        String?
+  firstResponseHours Int      @default(4)
+  resolutionHours    Int      @default(24)
+  escalationHours    Int?
+  appliesTo          String   @default("SUPPORT")
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tickets      SupportTicket[]
+
+  @@index([organizationId])
+}
+
+model ResourceAllocation {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String
+  userId         String
+  role           String?
+  allocationPct  Int       @default(100)
+  startDate      DateTime?
+  endDate        DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model ClientPortalUser {
+  id             String    @id @default(cuid())
+  organizationId String
+  partyId        String?
+  name           String
+  email          String
+  passwordHash   String
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 2 — TELE-CALLING AGENCY
+// ─────────────────────────────────────────────────────────────
+
+enum CallOutcome {
+  CONNECTED
+  NO_ANSWER
+  BUSY
+  VOICEMAIL
+  WRONG_NUMBER
+  CALLBACK_REQUESTED
+  INTERESTED
+  NOT_INTERESTED
+  CONVERTED
+}
+
+model CallLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  leadId         String?
+  partyId        String?
+  agentId        String?
+  campaignId     String?
+  phone          String
+  direction      String       @default("OUTBOUND")
+  outcome        CallOutcome?
+  duration       Int?
+  notes          String?
+  recordingUrl   String?
+  scheduledAt    DateTime?
+  calledAt       DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([agentId])
+  @@index([campaignId])
+  @@index([calledAt])
+}
+
+model CallScript {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  category       String?
+  content        String
+  objections     String?
+  isActive       Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model DNCEntry {
+  id             String   @id @default(cuid())
+  organizationId String
+  phone          String
+  reason         String?
+  addedById      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+}
+
+model DialerCampaign {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  status         String    @default("DRAFT")
+  scriptId       String?
+  targetCount    Int       @default(0)
+  dialedCount    Int       @default(0)
+  connectedCount Int       @default(0)
+  convertedCount Int       @default(0)
+  startDate      DateTime?
+  endDate        DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 3 — SERVICES-BASED COMPANY
+// ─────────────────────────────────────────────────────────────
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  CANCELLED
+}
+
+model ServiceCatalogItem {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  category       String?
+  unitPrice      Float
+  unit           String   @default("service")
+  deliveryDays   Int?
+  isActive       Boolean  @default(true)
+  tags           String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contracts    ServiceContract[]
+
+  @@index([organizationId])
+}
+
+model ServiceContract {
+  id              String         @id @default(cuid())
+  organizationId  String
+  partyId         String?
+  serviceItemId   String?
+  title           String
+  description     String?
+  status          ContractStatus @default(DRAFT)
+  value           Float?
+  billingCycle    String         @default("MONTHLY")
+  startDate       DateTime?
+  endDate         DateTime?
+  nextBillingDate DateTime?
+  autoRenew       Boolean        @default(false)
+  slaHours        Int?
+  assignedToId    String?
+  createdById     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceItem  ServiceCatalogItem? @relation(fields: [serviceItemId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([nextBillingDate])
+}
+
+model KBArticle {
+  id             String    @id @default(cuid())
+  organizationId String
+  title          String
+  slug           String
+  content        String
+  category       String?
+  tags           String[]  @default([])
+  isPublic       Boolean   @default(false)
+  views          Int       @default(0)
+  helpful        Int       @default(0)
+  notHelpful     Int       @default(0)
+  authorId       String?
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([organizationId, isPublic])
+}
+
+model InternalMessage {
+  id             String    @id @default(cuid())
+  organizationId String
+  senderId       String
+  recipientId    String?
+  threadId       String?
+  message        String
+  attachments    String[]  @default([])
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([threadId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 4 — STOCK MARKET / FINANCIAL ADVISORY
+// ─────────────────────────────────────────────────────────────
+
+enum TradeCallStatus {
+  ACTIVE
+  TARGET_HIT
+  STOP_LOSS
+  EXPIRED
+  CANCELLED
+}
+
+model AdvisoryPlan {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  price          Float
+  billingCycle   String   @default("MONTHLY")
+  features       String[] @default([])
+  maxAlerts      Int?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptions AdvisorySubscription[]
+
+  @@index([organizationId])
+}
+
+model AdvisorySubscription {
+  id             String         @id @default(cuid())
+  organizationId String
+  partyId        String?
+  planId         String
+  status         ContractStatus @default(ACTIVE)
+  startDate      DateTime       @default(now())
+  endDate        DateTime?
+  amount         Float
+  kycVerified    Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         AdvisoryPlan @relation(fields: [planId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model TradeCall {
+  id             String          @id @default(cuid())
+  organizationId String
+  symbol         String
+  exchange       String?
+  callType       String          @default("BUY")
+  segment        String          @default("EQUITY")
+  entryPrice     Float?
+  entryLow       Float?
+  entryHigh      Float?
+  targetPrice    Float?
+  target2        Float?
+  stopLoss       Float?
+  riskReward     Float?
+  status         TradeCallStatus @default(ACTIVE)
+  rationale      String?
+  outcome        Float?
+  calledById     String?
+  publishedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([symbol])
+}
+
+model ResearchReport {
+  id             String    @id @default(cuid())
+  organizationId String
+  title          String
+  symbol         String?
+  reportType     String    @default("EQUITY")
+  summary        String?
+  content        String?
+  rating         String?
+  targetPrice    Float?
+  currentPrice   Float?
+  fileUrl        String?
+  isPublic       Boolean   @default(false)
+  authorId       String?
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([symbol])
+}
+
+model KYCRecord {
+  id             String    @id @default(cuid())
+  organizationId String
+  partyId        String?
+  panNumber      String?
+  aadharNumber   String?
+  bankAccount    String?
+  ifscCode       String?
+  bankName       String?
+  dematAccount   String?
+  dpId           String?
+  riskProfile    String?
+  isVerified     Boolean   @default(false)
+  verifiedById   String?
+  verifiedAt     DateTime?
+  documents      String[]  @default([])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, partyId])
+  @@index([organizationId])
+}
+
+model MarketAlert {
+  id             String    @id @default(cuid())
+  organizationId String
+  symbol         String
+  alertType      String    @default("PRICE")
+  condition      String?
+  triggerValue   Float?
+  message        String
+  isActive       Boolean   @default(true)
+  triggeredAt    DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([symbol])
+  @@index([isActive])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 5 — HEALTH SECTOR
+// ─────────────────────────────────────────────────────────────
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum BloodGroup {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+  UNKNOWN
+}
+
+model Patient {
+  id             String      @id @default(cuid())
+  organizationId String
+  patientCode    String?
+  name           String
+  dob            DateTime?
+  gender         Gender?
+  bloodGroup     BloodGroup?
+  phone          String?
+  email          String?
+  address        String?
+  emergencyName  String?
+  emergencyPhone String?
+  allergies      String[]    @default([])
+  chronicConds   String[]    @default([])
+  notes          String?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  visits        PatientVisit[]
+  prescriptions Prescription[]
+  labReports    LabReport[]
+  appointments  HealthAppointment[]
+
+  @@index([organizationId])
+  @@index([organizationId, patientCode])
+  @@index([phone])
+}
+
+model PatientVisit {
+  id             String    @id @default(cuid())
+  organizationId String
+  patientId      String
+  visitDate      DateTime  @default(now())
+  visitType      String    @default("OPD")
+  doctorId       String?
+  chiefComplaint String?
+  diagnosis      String?
+  vitalsBP       String?
+  vitalsPulse    Int?
+  vitalsTemp     Float?
+  vitalsWeight   Float?
+  vitalsHeight   Float?
+  vitalsSpO2     Int?
+  notes          String?
+  followUpDate   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescriptions Prescription[]
+
+  @@index([organizationId])
+  @@index([patientId])
+  @@index([visitDate])
+}
+
+model Prescription {
+  id             String    @id @default(cuid())
+  organizationId String
+  patientId      String
+  visitId        String?
+  doctorId       String?
+  medicines      Json      @default("[]")
+  instructions   String?
+  diet           String?
+  followUpDays   Int?
+  validUntil     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visit        PatientVisit? @relation(fields: [visitId], references: [id])
+
+  @@index([organizationId])
+  @@index([patientId])
+}
+
+model LabReport {
+  id             String   @id @default(cuid())
+  organizationId String
+  patientId      String
+  visitId        String?
+  testName       String
+  testCategory   String?
+  results        Json     @default("{}")
+  normalRange    String?
+  interpretation String?
+  technicianId   String?
+  conductedAt    DateTime @default(now())
+  fileUrl        String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([patientId])
+}
+
+// ── Doctor registration & verification ──────────────────────
+
+enum DoctorVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  CONSULTATION
+  FOLLOW_UP
+  EMERGENCY
+  PROCEDURE
+}
+
+model Doctor {
+  id                 String                   @id @default(cuid())
+  organizationId     String
+  name               String
+  email              String?
+  phone              String?
+  specialization     String
+  qualification      String
+  registrationNo     String
+  experience         Int?
+  department         String?
+  consultationFee    Decimal?                 @db.Decimal(10, 2)
+  availableDays      String[]                 @default([])
+  slotDuration       Int                      @default(30)
+  bio                String?
+  isVerified         Boolean                  @default(false)
+  verificationStatus DoctorVerificationStatus @default(PENDING)
+  rejectionReason    String?
+  isActive           Boolean                  @default(true)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents    DoctorDocument[]
+  appointments HealthAppointment[]
+
+  @@index([organizationId])
+  @@index([organizationId, registrationNo])
+}
+
+model DoctorDocument {
+  id         String   @id @default(cuid())
+  doctorId   String
+  docType    String
+  docNumber  String?
+  fileUrl    String?
+  fileName   String?
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+}
+
+model HealthAppointment {
+  id              String            @id @default(cuid())
+  organizationId  String
+  appointmentNo   String
+  patientId       String
+  doctorId        String
+  appointmentDate DateTime
+  timeSlot        String
+  type            AppointmentType   @default(CONSULTATION)
+  status          AppointmentStatus @default(SCHEDULED)
+  chiefComplaint  String?
+  notes           String?
+  fee             Decimal?          @db.Decimal(10, 2)
+  isPaid          Boolean           @default(false)
+  cancelReason    String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id])
+  doctor       Doctor       @relation(fields: [doctorId], references: [id])
+
+  @@index([organizationId])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([appointmentDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  UNIVERSAL — CUSTOM FIELDS + SMS LOGS
+// ─────────────────────────────────────────────────────────────
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  URL
+  EMAIL
+}
+
+model CustomField {
+  id             String          @id @default(cuid())
+  organizationId String
+  entity         String
+  label          String
+  fieldKey       String
+  fieldType      CustomFieldType @default(TEXT)
+  options        String[]        @default([])
+  isRequired     Boolean         @default(false)
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  values       CustomFieldValue[]
+
+  @@unique([organizationId, entity, fieldKey])
+  @@index([organizationId, entity])
+}
+
+model CustomFieldValue {
+  id            String   @id @default(cuid())
+  customFieldId String
+  entityId      String
+  value         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([customFieldId, entityId])
+  @@index([customFieldId])
+  @@index([entityId])
+}
+
+model SMSLog {
+  id             String    @id @default(cuid())
+  organizationId String
+  phone          String
+  message        String
+  provider       String    @default("MSG91")
+  status         String    @default("PENDING")
+  providerId     String?
+  entityType     String?
+  entityId       String?
+  sentById       String?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([phone])
+  @@index([createdAt])
+}
+
+model ConsentLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  consentType    String
+  consentGiven   Boolean  @default(true)
+  ipAddress      String?
+  userAgent      String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 6 — FOOD & HOSPITALITY
+//  Restaurant / Café / Hotel / Resort
+// ─────────────────────────────────────────────────────────────
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum FoodOrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+  ROOM_SERVICE
+}
+
+enum KOTStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum FoodType {
+  VEG
+  NON_VEG
+  VEGAN
+  EGG
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+  MAINTENANCE
+  OUT_OF_ORDER
+}
+
+enum HotelBookingStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+// ── Restaurant Tables ─────────────────────────────────────────
+
+model RestaurantTable {
+  id             String      @id @default(cuid())
+  organizationId String
+  tableNumber    String
+  section        String?
+  capacity       Int         @default(4)
+  status         TableStatus @default(AVAILABLE)
+  posX           Int?
+  posY           Int?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kots         KOT[]
+  reservations TableReservation[]
+
+  @@unique([organizationId, tableNumber])
+  @@index([organizationId])
+}
+
+// ── Menu ─────────────────────────────────────────────────────
+
+model MenuCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  image          String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        MenuItem[]
+
+  @@index([organizationId])
+}
+
+model MenuItem {
+  id              String   @id @default(cuid())
+  organizationId  String
+  categoryId      String
+  name            String
+  description     String?
+  price           Decimal  @default(0) @db.Decimal(10, 2)
+  costPrice       Decimal  @default(0) @db.Decimal(10, 2)
+  foodType        FoodType @default(VEG)
+  image           String?
+  taxRate         Decimal  @default(0) @db.Decimal(5, 2)
+  preparationTime Int?
+  isAvailable     Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  tags            String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     MenuCategory      @relation(fields: [categoryId], references: [id])
+  variants     MenuItemVariant[]
+  addons       MenuItemAddon[]
+  kotItems     KOTItem[]
+
+  @@index([organizationId, categoryId])
+  @@index([organizationId])
+}
+
+model MenuItemVariant {
+  id         String  @id @default(cuid())
+  menuItemId String
+  name       String
+  price      Decimal @db.Decimal(10, 2)
+  isDefault  Boolean @default(false)
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+}
+
+model MenuItemAddon {
+  id         String  @id @default(cuid())
+  menuItemId String
+  name       String
+  price      Decimal @default(0) @db.Decimal(10, 2)
+  isRequired Boolean @default(false)
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+}
+
+// ── KOT (Kitchen Order Ticket) ────────────────────────────────
+
+model KOT {
+  id             String        @id @default(cuid())
+  organizationId String
+  tableId        String?
+  kotNumber      String
+  orderType      FoodOrderType @default(DINE_IN)
+  status         KOTStatus     @default(PENDING)
+  customerName   String?
+  customerPhone  String?
+  notes          String?
+  subtotal       Decimal       @default(0) @db.Decimal(10, 2)
+  taxAmount      Decimal       @default(0) @db.Decimal(10, 2)
+  total          Decimal       @default(0) @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  table        RestaurantTable? @relation(fields: [tableId], references: [id])
+  items        KOTItem[]
+  bills        RestaurantBill[]
+
+  @@index([organizationId])
+  @@index([tableId])
+  @@index([createdAt])
+}
+
+model KOTItem {
+  id          String    @id @default(cuid())
+  kotId       String
+  menuItemId  String
+  itemName    String
+  quantity    Int       @default(1)
+  price       Decimal   @db.Decimal(10, 2)
+  variantName String?
+  addons      Json?     @default("[]")
+  notes       String?
+  status      KOTStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+
+  kot      KOT      @relation(fields: [kotId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([kotId])
+}
+
+// ── Restaurant Bill ───────────────────────────────────────────
+
+model RestaurantBill {
+  id             String        @id @default(cuid())
+  organizationId String
+  kotId          String?
+  billNumber     String
+  orderType      FoodOrderType @default(DINE_IN)
+  subtotal       Decimal       @default(0) @db.Decimal(10, 2)
+  taxAmount      Decimal       @default(0) @db.Decimal(10, 2)
+  discount       Decimal       @default(0) @db.Decimal(10, 2)
+  roundOff       Decimal       @default(0) @db.Decimal(10, 2)
+  total          Decimal       @default(0) @db.Decimal(10, 2)
+  paymentMethod  String        @default("CASH")
+  paymentStatus  String        @default("PAID")
+  customerName   String?
+  customerPhone  String?
+  notes          String?
+  items          Json          @default("[]")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kot          KOT?         @relation(fields: [kotId], references: [id])
+
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+// ── Table Reservations ────────────────────────────────────────
+
+model TableReservation {
+  id             String   @id @default(cuid())
+  organizationId String
+  tableId        String?
+  guestName      String
+  guestPhone     String
+  guestEmail     String?
+  partySize      Int      @default(2)
+  reservedAt     DateTime
+  notes          String?
+  status         String   @default("CONFIRMED")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  table        RestaurantTable? @relation(fields: [tableId], references: [id])
+
+  @@index([organizationId])
+  @@index([reservedAt])
+}
+
+// ── Hotel / Resort ────────────────────────────────────────────
+
+model RoomType {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  basePrice      Decimal  @db.Decimal(10, 2)
+  capacity       Int      @default(2)
+  bedType        String?
+  amenities      String[] @default([])
+  images         String[] @default([])
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rooms        HotelRoom[]
+
+  @@index([organizationId])
+}
+
+model HotelRoom {
+  id             String     @id @default(cuid())
+  organizationId String
+  roomTypeId     String
+  roomNumber     String
+  floor          Int        @default(1)
+  status         RoomStatus @default(AVAILABLE)
+  notes          String?
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomType     RoomType       @relation(fields: [roomTypeId], references: [id])
+  bookings     HotelBooking[]
+
+  @@unique([organizationId, roomNumber])
+  @@index([organizationId])
+}
+
+model GuestProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  phone          String
+  email          String?
+  idType         String?
+  idNumber       String?
+  address        String?
+  city           String?
+  nationality    String   @default("Indian")
+  notes          String?
+  totalStays     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings     HotelBooking[]
+
+  @@index([organizationId])
+  @@index([phone])
+}
+
+model HotelBooking {
+  id              String             @id @default(cuid())
+  organizationId  String
+  bookingNumber   String
+  roomId          String
+  guestId         String
+  checkIn         DateTime
+  checkOut        DateTime
+  adults          Int                @default(1)
+  children        Int                @default(0)
+  ratePerNight    Decimal            @db.Decimal(10, 2)
+  totalNights     Int                @default(1)
+  subtotal        Decimal            @default(0) @db.Decimal(10, 2)
+  taxAmount       Decimal            @default(0) @db.Decimal(10, 2)
+  discount        Decimal            @default(0) @db.Decimal(10, 2)
+  total           Decimal            @default(0) @db.Decimal(10, 2)
+  advancePaid     Decimal            @default(0) @db.Decimal(10, 2)
+  balanceDue      Decimal            @default(0) @db.Decimal(10, 2)
+  status          HotelBookingStatus @default(CONFIRMED)
+  paymentMethod   String?
+  source          String?
+  specialRequests String?
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  room         HotelRoom    @relation(fields: [roomId], references: [id])
+  guest        GuestProfile @relation(fields: [guestId], references: [id])
+
+  @@index([organizationId])
+  @@index([checkIn, checkOut])
+  @@index([status])
+}
+
+// ── Reception / Front Desk (generic — any business type) ─────
+enum VisitorStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  EXPECTED
+  CANCELLED
+}
+
+enum CourierType {
+  INCOMING
+  OUTGOING
+}
+
+enum CourierStatus {
+  PENDING
+  DELIVERED
+  RETURNED
+}
+
+model Visitor {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  phone          String?
+  email          String?
+  company        String?
+  purpose        String?
+  whomToMeet     String?
+  department     String?
+  idType         String?
+  idNumber       String?
+  vehicleNumber  String?
+  badgeNumber    String?
+  status         VisitorStatus @default(CHECKED_IN)
+  checkInTime    DateTime      @default(now())
+  checkOutTime   DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([checkInTime])
+}
+
+model CourierLog {
+  id             String        @id @default(cuid())
+  organizationId String
+  type           CourierType
+  courierCompany String?
+  trackingNumber String?
+  senderName     String?
+  senderCompany  String?
+  recipientName  String?
+  recipientDept  String?
+  description    String?
+  handledBy      String?
+  status         CourierStatus @default(PENDING)
+  loggedAt       DateTime      @default(now())
+  resolvedAt     DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([loggedAt])
+}
+
+// ── Public landing page access/demo requests ─────────────────
+enum DemoRequestStatus {
+  NEW
+  CONTACTED
+  ONBOARDED
+  REJECTED
+}
+
+model DemoRequest {
+  id           String            @id @default(cuid())
+  name         String
+  email        String
+  phone        String
+  organization String
+  teamSize     String?
+  message      String?
+  status       DemoRequestStatus @default(NEW)
+  adminNotes   String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ── White Band Associate — Service Delivery module ────────────
+// Sales (Himanshu) closes a deal & sends a quotation → once ACCEPTED it
+// becomes an opportunity in the PM's (Shubham) Ready-to-Start queue →
+// PM creates/confirms the project, assigns employees + both deadlines →
+// employee works their tasks, PM tracks status through to completion.
+// Leadership (Aman/Swarada/Akanksha) reads everything via their org role.
+
+enum WBAServiceCategory {
+  VAPT
+  GRC
+  SOC
+  DIGITAL_FORENSICS
+  AWARENESS_TRAINING
+  COACHING
+}
+
+enum WBAProjectStatus {
+  NOT_STARTED
+  STARTED
+  ABOUT_TO_COMPLETE
+  AWAITING_CLIENT_CONFIRMATION
+  COMPLETED
+}
+
+model WBAProject {
+  id             String             @id @default(cuid())
+  organizationId String
+  projectName    String
+  clientName     String
+  description    String?
+  category       WBAServiceCategory
+  status         WBAProjectStatus   @default(NOT_STARTED)
+  resources      String?
+  clientDeadline DateTime?
+  partyId        String?
+  quotationId    String?            @unique
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  party        Party?             @relation(fields: [partyId], references: [id])
+  quotation    Quotation?         @relation(fields: [quotationId], references: [id])
+  createdBy    User?              @relation("WBAProjectCreatedBy", fields: [createdById], references: [id])
+  members      WBAProjectMember[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model WBAProjectMember {
+  id               String    @id @default(cuid())
+  wbaProjectId     String
+  employeeId       String
+  employeeDeadline DateTime?
+  assignedAt       DateTime  @default(now())
+
+  wbaProject WBAProject @relation(fields: [wbaProjectId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([wbaProjectId, employeeId])
+  @@index([employeeId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Phase 8 — Car Resale ("Cars" module)
+// Buyer leads → converted into a sold Vehicle → insurance renewal tracking.
+// Independent of the CRM/Leads module by design (a distinct business line,
+// no calling/telecalling integration).
+// ═══════════════════════════════════════════════════════════════
+
+enum CarLeadStatus {
+  NEW
+  HOT
+  WARM
+  COLD
+  URGENT
+  CONTACTED
+  NOT_INTERESTED
+  CONVERTED
+  LOST
+}
+
+// Matches the client's own tracking-sheet channels (Insta/META/SEO/REF/RS/DS/CTE)
+// so the dropdown speaks their language, not a generic CRM's.
+enum CarLeadSource {
+  WALK_IN
+  PHONE
+  WEBSITE
+  INSTAGRAM
+  META_ADS
+  SEO
+  REFERRAL
+  RS
+  DS
+  CTE
+  OTHER
+}
+
+enum CarLeadType {
+  BUYER
+  SELLER
+}
+
+model CarLead {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  leadType           CarLeadType   @default(BUYER)
+  name               String
+  phone              String?
+  email              String?
+  interestedMake     String? // buyer: car they want to buy · seller: car they want to sell
+  interestedModel    String?
+  budgetMin          Float? // buyer: budget range · seller: asking price range
+  budgetMax          Float?
+  tradeInVehicle     String? // free text, e.g. "2018 Honda City to exchange"
+  source             CarLeadSource @default(OTHER)
+  status             CarLeadStatus @default(NEW)
+  notes              String?
+  isDoNotCall        Boolean       @default(false)
+  testDriveDone      Boolean       @default(false)
+  lastContactedAt    DateTime? // last call attempt — set manually, no calling integration
+  assignedToId       String? // User.id — no FK relation (loose ref, same convention as Lead.assignedToId)
+  nextFollowUpDate   DateTime?
+  convertedVehicleId String?       @unique
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle?     @relation(fields: [convertedVehicleId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([assignedToId])
+}
+
+enum VehicleStatus {
+  IN_STOCK
+  RESERVED
+  SOLD
+}
+
+model Vehicle {
+  id             String        @id @default(cuid())
+  organizationId String
+  make           String
+  model          String
+  variant        String?
+  year           Int?
+  registrationNo String?
+  chassisNo      String?
+  engineNo       String?
+  color          String?
+  odometer       Int?
+  fuelType       String?
+  transmission   String?
+  purchasePrice  Float? // what the dealership paid to acquire this used vehicle
+  sellerName     String? // who they bought it FROM, when acquired directly (not via a lead)
+  sellerPhone    String?
+  sellerEmail    String?
+  purchasedAt      DateTime? // when the dealership acquired this vehicle
+  registrationDate DateTime? // when the vehicle itself was first registered (RTO), distinct from purchasedAt
+  salePrice        Float?
+  status           VehicleStatus @default(IN_STOCK)
+  ownerName        String? // buyer, once sold
+  ownerPhone       String?
+  ownerEmail       String?
+  ownerAddress     String?
+  soldAt           DateTime?
+  warrantyMonths   Int? // set at time of sale
+  warrantyEndDate  DateTime? // soldAt + warrantyMonths, stored explicitly for easy querying
+  assignedToId     String? // salesperson responsible — User.id, no FK (same loose-ref convention as CarLead.assignedToId)
+  notes            String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  insurances   VehicleInsurance[]
+  sourceLead   CarLead?
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+enum InsuranceType {
+  THIRD_PARTY
+  COMPREHENSIVE
+  ZERO_DEP
+}
+
+model VehicleInsurance {
+  id             String        @id @default(cuid())
+  organizationId String
+  vehicleId      String
+  provider       String
+  policyNumber   String?
+  type           InsuranceType @default(THIRD_PARTY)
+  startDate      DateTime
+  endDate        DateTime
+  premium        Float?
+  idv            Float? // Insured Declared Value
+  odAmount       Float? // Own Damage premium component
+  ncb            Float? // No Claim Bonus, as a percentage
+  paymentMode    String?
+  sharing        String? // co-owner/sharing arrangement, free text
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([vehicleId])
+  @@index([organizationId, endDate])
+}
+
+// Pre-digital-adoption monthly totals, imported from a client's own tracking
+// sheet (source/status/sales breakdown per month) — kept separate from real
+// CarLead records so historical bulk numbers never clutter the actual buyer
+// leads list. The Monthly Report merges these in for any month that has one.
+model CarHistoricalStat {
+  id             String   @id @default(cuid())
+  organizationId String
+  month          String // "YYYY-MM"
+  bySource       Json // enquiry counts, e.g. { "INSTAGRAM": 146, "RS": 4, "CTE": 207, ... }
+  hot            Int      @default(0)
+  warm           Int      @default(0)
+  cold           Int      @default(0)
+  notInterested  Int      @default(0)
+  testDrivesDone Int      @default(0)
+  totalEnquiries Int      @default(0)
+  salesBySource  Json // sales/conversions counts, same key shape as bySource
+  lost           Int      @default(0)
+  converted      Int      @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, month])
+  @@index([organizationId])
+}

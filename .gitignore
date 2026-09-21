@@ -1,0 +1,40 @@
+# ── Environment ──────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── Build outputs ────────────────────────────────────────────
+dist/
+build/
+backend/dist/
+frontend/dist/
+
+# ── Prisma generated ─────────────────────────────────────────
+backend/generated/
+backend/prisma/generated/
+
+# ── Uploaded files ───────────────────────────────────────────
+backend/uploads/
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+frontend_run.log
+
+# ── OS / Editor ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.sw?
+
+# ── Claude Code ───────────────────────────────────────────────
+.claude/

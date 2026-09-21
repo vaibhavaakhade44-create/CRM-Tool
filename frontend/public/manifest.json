@@ -1,0 +1,15 @@
+{
+  "name": "BusinessOS",
+  "short_name": "BusinessOS",
+  "description": "All-in-one CRM & ERP for import-export businesses",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07071A",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en-IN"
+}
