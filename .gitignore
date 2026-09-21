@@ -38,3 +38,6 @@ Thumbs.db
 
 # ── Claude Code ───────────────────────────────────────────────
 .claude/
+
+# ── GitHub Actions (local token lacks workflow scope) ─────────
+.github/
